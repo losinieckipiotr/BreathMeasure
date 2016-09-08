@@ -3,9 +3,6 @@
 #include <iostream>
 #include <exception>
 
-#include <cstdlib>
-#include <cstring>
-#include <cmath>
 #include <unistd.h>
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
@@ -50,25 +47,6 @@ const double Detector::Band2000A[] =
 	0.171572875253810,
 };
 
-/*
-//WSPOLCZYNNIKI B DLA FILTRU DOLNOPRZEPUSTOWEGO DLAPORBKOWANIA 2000 Hz
-const double Detector::Low2000B[] =
-{
-	4.79865533420387e-09,
-	1.43959660026116e-08,
-	1.43959660026116e-08,
-	4.79865533420387e-09,
-};
-//WSPOLCZYNNIKI A DLA FILTRU DOLNOPRZEPUSTOWEGO DLAPORBKOWANIA 2000 Hz
-const double Detector::Low2000A[] =
-{
-	1.0,
-	-2.99324557900466,
-	2.98651394985148,
-	-0.993268332457576
-};
-*/
-
 Detector::Detector(std::function<void(double)> brHandler)
 	: //filterHigh(2, B_H, A_H),
 	  filterBand(PASS_BAND_ORDER*2, Band2000B, Band2000A),
@@ -77,8 +55,7 @@ Detector::Detector(std::function<void(double)> brHandler)
 	  env(ANALAYZE_SIZE),
 	  handler(brHandler)
 {
-    //pusta operacja aby obiekt byl wazny
-	analyseFuture = async([](){ ; });
+
 }
 
 Detector::~Detector()
@@ -103,13 +80,11 @@ void Detector::StartSample()
 {
     try
     {
-        thread anlayzeTh = thread([this]{ AnalyseSamples2(); });
+        thread anlayzeTh = thread([this]{ AnalyseSamples(); });
         //odczytanie i pominiecie starej probki
         read(i2cFd, readBuf, 2);
 
         size_t i = 0;
-        bool bufFalg = false;
-        unsigned char *bufPtr = sampleBuf1;
         unsigned int now;
 
         //ustawienie maksymalnego priorytetu watku
@@ -128,29 +103,6 @@ void Detector::StartSample()
             {
                 throw runtime_error("spsc_queue.push() returned false!");
             }
-
-            /*
-            bufPtr[i] = readBuf[0];
-            /////////////////////////////////////////////////////////////////
-            ++i;
-            //jezeli bufor napelniony przeslij do drugiego watka do analizy
-            if (i == WINDOW_SIZE)
-            {
-                //wyzerowanie licznika
-                i = 0;
-                //synchronizacja (czeka az poprzednie probki zostaly przeanalizowane)
-                analyseFuture.wait();
-                //uruchomienie analizy aktualnego bufora
-                analyseFuture = async(launch::async, [this, bufPtr]{ AnalyseSamples(bufPtr); });
-                //zmiana bufora aby nie kopiowac danych w tym watku
-                bufFalg = !bufFalg;
-                if (bufFalg)
-                    bufPtr = sampleBuf2;
-                else
-                    bufPtr = sampleBuf1;
-            }
-            */
-
             //pobranie aktualnego czasu
             now = micros();
             //obliczenie nastepnego czasu
@@ -159,11 +111,8 @@ void Detector::StartSample()
             //jezeli wystapi opoznienie zobaczymy komunikat
             if((nexTime > now))
                 delayMicroseconds(nexTime - now);
-            //else
-                //cout << "To slow!\t" << (now - nexTime) << endl;
         }
         //synchronizacja przy wyjsciu
-        //analyseFuture.wait();
         anlayzeTh.join();
     } catch (exception& e)
     {
@@ -177,96 +126,7 @@ void Detector::StopSample()
     sampleFlag = false;
 }
 
-void Detector::AnalyseSamples(unsigned char *buf)
-{
-    //kopiowanie danych konieczne aby wykonac
-    //konwersje na double
-	for (size_t i = 0; i < WINDOW_SIZE; ++i)
-	{
-		wave[i] = static_cast<double>(buf[i]);
-		//skalowanie
-		wave[i] -= 128;
-		//wave[i] /= 127;
-	}
-
-	//filtr gornoprzepustowy fc=5Hz - usuwa skladowa stala
-	//filterHigh.Filter(wave.data(), wave.size());
-
-	//filtr pasmowo przepustowy 300-800Hz - filtrue np. sygnal mowy
-	filterBand.Filter(wave.data(), wave.size());
-
-	//downsampling i obliczenie wartosci bezwzglednej
-	//oblicznie wartosci bezwzglednej dla kazdej probki
-	int j = 0;
-	for(size_t i = 0; i < ANALAYZE_SIZE; ++i)
-	{
-		env[i] = abs(wave[j]);
-		j += DOWNSAMPLE_FACTOR;
-	}
-
-	//filtr dolnoprzepustowy fc=1,075Hz - wykrywanie obwiedni
-	filterLow.Filter(env.data(), ANALAYZE_SIZE);
-
-	//wykrywanie wydechow
-	for (size_t i = 0; i < ANALAYZE_SIZE; ++i)
-	{
-        //jezeli wczesniej nie znaleziono piku
-		if (peakFound == false)
-		{
-            //czy wartosc probki jest wieksza od progu
-			if (env[i] >= threshold)
-			{
-				//zapisanie czasu wystapienia probki
-				peakTime = peakStartTime = i + offset;
-				//zapisanie wartosci probki
-				peakVal = env[i];
-				//ustawienie flagi oznacza poczatek piku
-				peakFound = true;
-			}
-		}
-		//jezeli znaleziono pik
-		else
-		{
-            //jezeli probka jest wieksza od popzedniej
-			if (env[i] > peakVal)
-			{
-                //zapisz jej wartosc (szukanie maksimum)
-				peakVal = env[i];
-				//zapisz czas
-				peakTime = i + offset;
-			}
-			//jezeli probka jest mniejsza od progu, oznacza to ze pik sie skonczyl
-			else if (env[i] < threshold)
-			{
-				//wylacznie flagi
-				peakFound = false;
-				//zapisanie czasu ostatniej probki w piku
-				peakEndTime = i + offset;
-				//obliczenie szerokosci piku
-				peakW = (peakEndTime - peakStartTime) / (double)ANALAYZE_FERQ;
-				//obliczenie wysokosci piku
-				peakH = peakVal - threshold;
-				//podjecie decyzji o wykryciu wydechu
-				if (peakW > minW && peakH > minH)
-				{
-					//przeliczenie numeru probek na sekundy
-					peakSecond = peakTime / (double)ANALAYZE_FERQ;
-					//obliczenie czestosci oddechu
-					BPM = 1 / (peakSecond - previousPeakSecond) * 60;
-					//zapisanie czasu piku (probka o najwyzszej wartosci)
-					previousPeakSecond = peakSecond;
-
-					//wyswietlenie i przeslanie wyniku pomiaru (wywolanie handlera)
-					async(launch::async, handler, BPM);
-				}
-			}
-		}
-	}
-	//inkrementacjia offsetu
-	offset += ANALAYZE_SIZE;
-}
-
-void Detector::AnalyseSamples2()
+void Detector::AnalyseSamples()
 {
     try
     {
@@ -286,7 +146,8 @@ void Detector::AnalyseSamples2()
                 }
                 else
                 {
-                    delayMicroseconds(TICK * WINDOW_SIZE / 10);
+                    //jezeli nie ma probek poczekaj
+                    delayMicroseconds(TICK * SAMPLE_FERQ / 4);
                 }
                 continue;
             }
@@ -298,11 +159,9 @@ void Detector::AnalyseSamples2()
             filterBand.Filter(wave.data(), wave.size());
             //downsampling i obliczenie wartosci bezwzglednej
             //oblicznie wartosci bezwzglednej dla kazdej probki
-            int j = 0;
             for(size_t i = 0; i < ANALAYZE_SIZE; ++i)
             {
-                env[i] = abs(wave[j]);
-                j += DOWNSAMPLE_FACTOR;
+                env[i] = abs(wave[i * (DOWNSAMPLE_FACTOR - 1)]);
             }
             //filtr dolnoprzepustowy fc=1,075Hz - wykrywanie obwiedni
             filterLow.Filter(env.data(), ANALAYZE_SIZE);
@@ -367,5 +226,6 @@ void Detector::AnalyseSamples2()
 	} catch (exception& e)
 	{
         cout << e.what() << endl;
+        exit(1);
 	}
 }

@@ -3,4 +3,4 @@ core
 obj/
 bin/
 *.layout
-
+*.depend

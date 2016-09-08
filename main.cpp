@@ -3,7 +3,7 @@
 #include <list>
 #include <exception>
 #include <functional>
-#include <future>
+#include <thread>
 
 #include "BtClient.h"
 #include "Detector.h"
@@ -120,17 +120,15 @@ int main(int argc, char **argv)
         cout << "Starting measure..." << endl;
         cout << "Press Enter to exit." << endl;
 
-        future<void> sampleFuture = async(launch::async, [&det]()
-        {
-            det.StartSample();
-        });
+        //uruchomienie watka probkujacego
+        thread sampleTh = thread([&det]{ det.StartSample(); });
 
         //wcisniecie klawisz Enter powoduje zamkniecie programu
         cin.get();
         //zatrzymanie probkowania
         det.StopSample();
         //synchronizacja
-        sampleFuture.wait();
+        sampleTh.join();
         //zamkniecie polaczanie BT
         if(btClient != nullptr)
             btClient->Disconnect();

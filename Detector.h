@@ -1,15 +1,12 @@
 #ifndef DETECOTR_H
 #define DETECOTR_H
 
-#include <chrono>
-#include <future>
 #include <vector>
-#include <iostream>
 #include <functional>
 #include <thread>
+#include <future>
 
 #include <boost/lockfree/spsc_queue.hpp>
-#include <boost/atomic.hpp>
 
 #include "DigitalFilter.h"
 
@@ -17,15 +14,14 @@ class Detector
 {
 	enum
 	{
-		SAMPLE_FERQ = 2000,
-		WINDOW_SIZE = 500,
-		ADC_ADDRES = 0x48,
-		CONTROL_BYTE = 0x02,
-		//HIGH_PASS_ORDER = 2,
+		SAMPLE_FERQ = 2000,//nie zmeniac, zalezne od filtru pasmowo przepustowego
+		WINDOW_SIZE = 4,//mozna zmieniac, min 4
+		ADC_ADDRES = 0x48,//adres przetwornika
+		CONTROL_BYTE = 0x02,//kanal przetwornika
 		PASS_BAND_ORDER = 2,
 		LOW_PASS_ORDER = 3,
 		TICK = 1000000 / SAMPLE_FERQ,
-		DOWNSAMPLE_FACTOR = 4,
+		DOWNSAMPLE_FACTOR = 4,//nie zmieniac, zalezne od filtru dolonoprzepustowego
 		ANALAYZE_FERQ = SAMPLE_FERQ / DOWNSAMPLE_FACTOR,
 		ANALAYZE_SIZE = WINDOW_SIZE / DOWNSAMPLE_FACTOR
 	};
@@ -39,30 +35,20 @@ public:
 	void StopSample();
 
 private:
-	void AnalyseSamples(unsigned char *buf);
-	void AnalyseSamples2();
+	void AnalyseSamples();
 
 	//ZMIENNE METODY PROBKUJACEJ/////////////////////////////////////////
 
 	int i2cFd;
 	bool sampleFlag = true;
 
-	std::future<void> analyseFuture;
-
 	unsigned char readBuf[2];
-	unsigned char sampleBuf1[WINDOW_SIZE];
-	unsigned char sampleBuf2[WINDOW_SIZE];
 
 	boost::lockfree::spsc_queue<unsigned char, boost::lockfree::capacity<SAMPLE_FERQ>> lockFreeBuffer;
 
 	/////////////////////////////////////////////////////////////////////
 
 	//ZMIENNE METODY ANALIZUJACEJ PROBKI/////////////////////////////////
-
-	//WSPOLCZYNNIKI B DLA FILTRU GORNOPRZEPUSTOWEGO DLAPORBKOWANIA 500 Hz
-	//static const double B_H[HIGH_PASS_ORDER + 1];
-	//WSPOLCZYNNIKI A DLA FILTRU GORNOPRZEPUSTOWEGO DLAPORBKOWANIA 500 Hz
-	//static const double A_H[HIGH_PASS_ORDER + 1];
 
 	//WSPOLCZYNNIKI B DLA FILTRU DOLNOPRZEPUSTOWEGO DLAPORBKOWANIA 500 Hz
 	static const double Low500B[LOW_PASS_ORDER + 1];
@@ -73,13 +59,6 @@ private:
 	static const double Band2000B[PASS_BAND_ORDER*2 + 1];
 	//WSPOLCZYNNIKI A DLA FILTRU PASMOWOPRZEPUSTOWEGO DLAPORBKOWANIA 2000 Hz
 	static const double Band2000A[PASS_BAND_ORDER*2 + 1];
-
-	//WSPOLCZYNNIKI B DLA FILTRU DOLNOPRZEPUSTOWEGO DLAPORBKOWANIA 2000 Hz
-	//static const double Low2000B[LOW_PASS_ORDER + 1];
-	//WSPOLCZYNNIKI A DLA FILTRU DOLNOPRZEPUSTOWEGO DLAPORBKOWANIA 2000 Hz
-	//static const double Low2000A[LOW_PASS_ORDER + 1];
-
-	//DigitalFilter filterHigh;
 
 	DigitalFilter filterBand;
 	DigitalFilter filterLow;
