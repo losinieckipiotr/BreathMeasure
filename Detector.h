@@ -6,6 +6,10 @@
 #include <vector>
 #include <iostream>
 #include <functional>
+#include <thread>
+
+#include <boost/lockfree/spsc_queue.hpp>
+#include <boost/atomic.hpp>
 
 #include "DigitalFilter.h"
 
@@ -36,6 +40,7 @@ public:
 
 private:
 	void AnalyseSamples(unsigned char *buf);
+	void AnalyseSamples2();
 
 	//ZMIENNE METODY PROBKUJACEJ/////////////////////////////////////////
 
@@ -47,6 +52,8 @@ private:
 	unsigned char readBuf[2];
 	unsigned char sampleBuf1[WINDOW_SIZE];
 	unsigned char sampleBuf2[WINDOW_SIZE];
+
+	boost::lockfree::spsc_queue<unsigned char, boost::lockfree::capacity<SAMPLE_FERQ>> lockFreeBuffer;
 
 	/////////////////////////////////////////////////////////////////////
 

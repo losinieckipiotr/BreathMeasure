@@ -101,58 +101,75 @@ void Detector::Init()
 
 void Detector::StartSample()
 {
-    //odczytanie i pominiecie starej probki
-    read(i2cFd, readBuf, 2);
-
-    size_t i = 0;
-	bool bufFalg = false;
-	unsigned char *bufPtr = sampleBuf1;
-    unsigned int now;
-
-    //ustawienie maksymalnego priorytetu watku
-    //w celu minimalizacji jittera
-    piHiPri(99);
-
-   unsigned int nexTime = micros() + TICK;
-
-    while(sampleFlag)
+    try
     {
-        //odczytanie nowej probki////////////////////////////////////////
-        //UWAGA: czytanie 2 probek ktore sa takie same///////////////////
-        //jezeli czytalibysmy 1 to otrzymamy zawsze to samo stara probke
+        thread anlayzeTh = thread([this]{ AnalyseSamples2(); });
+        //odczytanie i pominiecie starej probki
         read(i2cFd, readBuf, 2);
-		bufPtr[i] = readBuf[0];
-		/////////////////////////////////////////////////////////////////
-		++i;
-		//jezeli bufor napelniony przeslij do drugiego watka do analizy
-		if (i == WINDOW_SIZE)
-		{
-            //wyzerowanie licznika
-			i = 0;
-			//synchronizacja (czeka az poprzednie probki zostaly przeanalizowane)
-			analyseFuture.wait();
-			//uruchomienie analizy aktualnego bufora
-			analyseFuture = async(launch::async, [this, bufPtr]{ AnalyseSamples(bufPtr); });
-			//zmiana bufora aby nie kopiowac danych w tym watku
-			bufFalg = !bufFalg;
-			if (bufFalg)
-				bufPtr = sampleBuf2;
-			else
-				bufPtr = sampleBuf1;
-		}
-		//pobranie aktualnego czasu
-		now = micros();
-		//obliczenie nastepnego czasu
-		nexTime += TICK;
-		//opoznienie jezeli zdazylo sie wszystko wykonac
-		//jezeli wystapi opoznienie zobaczymy komunikat
-		if((nexTime > now))
-            delayMicroseconds(nexTime - now);
-        //else
-            //cout << "To slow!\t" << (now - nexTime) << endl;
+
+        size_t i = 0;
+        bool bufFalg = false;
+        unsigned char *bufPtr = sampleBuf1;
+        unsigned int now;
+
+        //ustawienie maksymalnego priorytetu watku
+        //w celu minimalizacji jittera
+        piHiPri(99);
+
+       unsigned int nexTime = micros() + TICK;
+
+        while(sampleFlag)
+        {
+            //odczytanie nowej probki////////////////////////////////////////
+            //UWAGA: czytanie 2 probek ktore sa takie same///////////////////
+            //jezeli czytalibysmy 1 to otrzymamy zawsze to samo stara probke
+            read(i2cFd, readBuf, 2);
+            if(!lockFreeBuffer.push(readBuf[0]))
+            {
+                throw runtime_error("spsc_queue.push() returned false!");
+            }
+
+            /*
+            bufPtr[i] = readBuf[0];
+            /////////////////////////////////////////////////////////////////
+            ++i;
+            //jezeli bufor napelniony przeslij do drugiego watka do analizy
+            if (i == WINDOW_SIZE)
+            {
+                //wyzerowanie licznika
+                i = 0;
+                //synchronizacja (czeka az poprzednie probki zostaly przeanalizowane)
+                analyseFuture.wait();
+                //uruchomienie analizy aktualnego bufora
+                analyseFuture = async(launch::async, [this, bufPtr]{ AnalyseSamples(bufPtr); });
+                //zmiana bufora aby nie kopiowac danych w tym watku
+                bufFalg = !bufFalg;
+                if (bufFalg)
+                    bufPtr = sampleBuf2;
+                else
+                    bufPtr = sampleBuf1;
+            }
+            */
+
+            //pobranie aktualnego czasu
+            now = micros();
+            //obliczenie nastepnego czasu
+            nexTime += TICK;
+            //opoznienie jezeli zdazylo sie wszystko wykonac
+            //jezeli wystapi opoznienie zobaczymy komunikat
+            if((nexTime > now))
+                delayMicroseconds(nexTime - now);
+            //else
+                //cout << "To slow!\t" << (now - nexTime) << endl;
+        }
+        //synchronizacja przy wyjsciu
+        //analyseFuture.wait();
+        anlayzeTh.join();
+    } catch (exception& e)
+    {
+        cout << e.what() << endl;
+        exit(1);
     }
-    //synchronizacja przy wyjsciu
-    analyseFuture.wait();
 }
 
 void Detector::StopSample()
@@ -249,3 +266,106 @@ void Detector::AnalyseSamples(unsigned char *buf)
 	offset += ANALAYZE_SIZE;
 }
 
+void Detector::AnalyseSamples2()
+{
+    try
+    {
+        int windowCtr = 0;
+        unsigned char val = 0;
+        while(sampleFlag)
+        {
+            //czy zebrano odpowiednia liczbe probek ?
+            if(windowCtr < WINDOW_SIZE)
+            {
+                //czy w buforze jest wartosc?
+                if(lockFreeBuffer.pop(val))
+                {
+                    wave[windowCtr] = static_cast<double>(val);
+                    wave[windowCtr] -= 128;//skalowanie
+                    ++windowCtr;
+                }
+                else
+                {
+                    delayMicroseconds(TICK * WINDOW_SIZE / 10);
+                }
+                continue;
+            }
+            else
+            {
+                windowCtr = 0;
+            }
+            //filtr pasmowo przepustowy 300-800Hz - filtrue np. sygnal mowy
+            filterBand.Filter(wave.data(), wave.size());
+            //downsampling i obliczenie wartosci bezwzglednej
+            //oblicznie wartosci bezwzglednej dla kazdej probki
+            int j = 0;
+            for(size_t i = 0; i < ANALAYZE_SIZE; ++i)
+            {
+                env[i] = abs(wave[j]);
+                j += DOWNSAMPLE_FACTOR;
+            }
+            //filtr dolnoprzepustowy fc=1,075Hz - wykrywanie obwiedni
+            filterLow.Filter(env.data(), ANALAYZE_SIZE);
+            //wykrywanie wydechow
+            for (size_t i = 0; i < ANALAYZE_SIZE; ++i)
+            {
+                //jezeli wczesniej nie znaleziono piku
+                if (peakFound == false)
+                {
+                    //czy wartosc probki jest wieksza od progu
+                    if (env[i] >= threshold)
+                    {
+                        //zapisanie czasu wystapienia probki
+                        peakTime = peakStartTime = i + offset;
+                        //zapisanie wartosci probki
+                        peakVal = env[i];
+                        //ustawienie flagi oznacza poczatek piku
+                        peakFound = true;
+                    }
+                }
+                //jezeli znaleziono pik
+                else
+                {
+                    //jezeli probka jest wieksza od popzedniej
+                    if (env[i] > peakVal)
+                    {
+                        //zapisz jej wartosc (szukanie maksimum)
+                        peakVal = env[i];
+                        //zapisz czas
+                        peakTime = i + offset;
+                    }
+                    //jezeli probka jest mniejsza od progu, oznacza to ze pik sie skonczyl
+                    else if (env[i] < threshold)
+                    {
+                        //wylacznie flagi
+                        peakFound = false;
+                        //zapisanie czasu ostatniej probki w piku
+                        peakEndTime = i + offset;
+                        //obliczenie szerokosci piku
+                        peakW = (peakEndTime - peakStartTime) / (double)ANALAYZE_FERQ;
+                        //obliczenie wysokosci piku
+                        peakH = peakVal - threshold;
+                        //podjecie decyzji o wykryciu wydechu
+                        if (peakW > minW && peakH > minH)
+                        {
+                            //przeliczenie numeru probek na sekundy
+                            peakSecond = peakTime / (double)ANALAYZE_FERQ;
+                            //obliczenie czestosci oddechu
+                            BPM = 1 / (peakSecond - previousPeakSecond) * 60;
+                            //zapisanie czasu piku (probka o najwyzszej wartosci)
+                            previousPeakSecond = peakSecond;
+
+                            //wyswietlenie i przeslanie wyniku pomiaru (wywolanie handlera)
+                            async(launch::async, handler, BPM);
+                        }
+                    }
+                }
+            }
+            //inkrementacjia offsetu
+            offset += ANALAYZE_SIZE;
+        }
+	} catch (exception& e)
+	{
+        cout << e.what() << endl;
+	}
+}

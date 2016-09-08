@@ -87,12 +87,15 @@
 	"Detector.h"
 	"TcpServer.h"
 
-1466797523 /home/piotr/codeblocks/BreathMeasure/Detector.h
+1473368118 /home/piotr/codeblocks/BreathMeasure/Detector.h
 	<chrono>
 	<future>
 	<vector>
 	<iostream>
 	<functional>
+	<thread>
+	<boost/lockfree/spsc_queue.hpp>
+	<boost/atomic.hpp>
 	"DigitalFilter.h"
 
 1466982365 /home/piotr/codeblocks/BreathMeasure/TcpServer.h
