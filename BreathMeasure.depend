@@ -1,0 +1,119 @@
+# depslib dependency file v1.0
+1465825403 source:/home/pi/programowanie/BreathMeasure/main.cpp
+	<iostream>
+	<string>
+	<list>
+	<exception>
+	<functional>
+	<future>
+	"BtClient.h"
+	"Detector.h"
+	"TcpServer.h"
+
+1465242542 source:/home/pi/programowanie/BreathMeasure/BtClient.cpp
+	"BtClient.h"
+
+1465236902 /home/pi/programowanie/BreathMeasure/BtClient.h
+	<stdio.h>
+	<unistd.h>
+	<sys/socket.h>
+	<bluetooth/bluetooth.h>
+	<bluetooth/rfcomm.h>
+	<string>
+
+1465245614 source:/home/pi/programowanie/BreathMeasure/DigitalFilter.cpp
+	"DigitalFilter.h"
+	<cstring>
+
+1465245402 /home/pi/programowanie/BreathMeasure/DigitalFilter.h
+	<cstdlib>
+
+1466981649 source:/home/pi/programowanie/BreathMeasure/Detector.cpp
+	"Detector.h"
+	<iostream>
+	<exception>
+	<cstdlib>
+	<cstring>
+	<cmath>
+	<unistd.h>
+	<wiringPi.h>
+	<wiringPiI2C.h>
+
+1466797522 /home/pi/programowanie/BreathMeasure/Detector.h
+	<chrono>
+	<future>
+	<vector>
+	<iostream>
+	<functional>
+	"DigitalFilter.h"
+
+1466982365 /home/pi/programowanie/BreathMeasure/TcpServer.h
+	<string>
+	<thread>
+	<boost/asio.hpp>
+
+1465840232 source:/home/pi/programowanie/BreathMeasure/TcpServer.cpp
+	"TcpServer.h"
+	<future>
+	<iostream>
+	<exception>
+
+1465242542 source:/home/piotr/codeblocks/BreathMeasure/BtClient.cpp
+	"BtClient.h"
+
+1465236903 /home/piotr/codeblocks/BreathMeasure/BtClient.h
+	<stdio.h>
+	<unistd.h>
+	<sys/socket.h>
+	<bluetooth/bluetooth.h>
+	<bluetooth/rfcomm.h>
+	<string>
+
+1465245615 source:/home/piotr/codeblocks/BreathMeasure/DigitalFilter.cpp
+	"DigitalFilter.h"
+	<cstring>
+
+1465245403 /home/piotr/codeblocks/BreathMeasure/DigitalFilter.h
+	<cstdlib>
+
+1465825403 source:/home/piotr/codeblocks/BreathMeasure/main.cpp
+	<iostream>
+	<string>
+	<list>
+	<exception>
+	<functional>
+	<future>
+	"BtClient.h"
+	"Detector.h"
+	"TcpServer.h"
+
+1466797523 /home/piotr/codeblocks/BreathMeasure/Detector.h
+	<chrono>
+	<future>
+	<vector>
+	<iostream>
+	<functional>
+	"DigitalFilter.h"
+
+1466982365 /home/piotr/codeblocks/BreathMeasure/TcpServer.h
+	<string>
+	<thread>
+	<boost/asio.hpp>
+
+1466981649 source:/home/piotr/codeblocks/BreathMeasure/Detector.cpp
+	"Detector.h"
+	<iostream>
+	<exception>
+	<cstdlib>
+	<cstring>
+	<cmath>
+	<unistd.h>
+	<wiringPi.h>
+	<wiringPiI2C.h>
+
+1466986319 source:/home/piotr/codeblocks/BreathMeasure/TcpServer.cpp
+	"TcpServer.h"
+	<future>
+	<iostream>
+	<exception>
+
