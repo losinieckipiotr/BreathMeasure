@@ -14,6 +14,7 @@
 				<Option parameters="-nobt" />
 				<Compiler>
 					<Add option="-g" />
+					<Add option="-fexceptions" />
 				</Compiler>
 			</Target>
 			<Target title="Release">
@@ -23,7 +24,9 @@
 				<Option compiler="arm-elf-gcc" />
 				<Option parameters="-nobt" />
 				<Compiler>
-					<Add option="-O2" />
+					<Add option="-mfpu=vfpv3-d16" />
+					<Add option="-O3" />
+					<Add option="-mtune=cortex-a7" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -32,7 +35,6 @@
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
-			<Add option="-fexceptions" />
 		</Compiler>
 		<Unit filename="BtClient.cpp" />
 		<Unit filename="BtClient.h" />
@@ -45,7 +47,17 @@
 		<Unit filename="main.cpp" />
 		<Extensions>
 			<code_completion />
-			<debugger />
+			<debugger>
+				<remote_debugging>
+					<options conn_type="0" serial_baud="115200" ip_address="192.168.1.10" ip_port="22" />
+				</remote_debugging>
+				<remote_debugging target="Debug">
+					<options conn_type="0" serial_baud="115200" ip_address="192.168.1.10" ip_port="22" />
+				</remote_debugging>
+				<remote_debugging target="Release">
+					<options conn_type="0" serial_baud="115200" ip_address="192.168.1.10" ip_port="22" />
+				</remote_debugging>
+			</debugger>
 		</Extensions>
 	</Project>
 </CodeBlocks_project_file>
