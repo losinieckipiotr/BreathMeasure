@@ -87,26 +87,26 @@
 	"Detector.h"
 	"TcpServer.h"
 
-1473372651 /home/piotr/codeblocks/BreathMeasure/Detector.h
+1473599066 /home/piotr/codeblocks/BreathMeasure/Detector.h
 	<vector>
 	<functional>
 	<thread>
 	<future>
 	<boost/lockfree/spsc_queue.hpp>
-	"DigitalFilter.h"
 
 1466982365 /home/piotr/codeblocks/BreathMeasure/TcpServer.h
 	<string>
 	<thread>
 	<boost/asio.hpp>
 
-1473372800 source:/home/piotr/codeblocks/BreathMeasure/Detector.cpp
+1473599076 source:/home/piotr/codeblocks/BreathMeasure/Detector.cpp
 	"Detector.h"
 	<iostream>
 	<exception>
 	<unistd.h>
 	<wiringPi.h>
 	<wiringPiI2C.h>
+	"DigitalFilter.h"
 
 1466986319 source:/home/piotr/codeblocks/BreathMeasure/TcpServer.cpp
 	"TcpServer.h"

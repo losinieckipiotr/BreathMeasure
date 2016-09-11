@@ -7,11 +7,12 @@
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
 
+#include "DigitalFilter.h"
+
 using namespace std;
-using namespace chrono;
 
 //WSPOLCZYNNIKI B DLA FILTRU DOLNOPRZEPUSTOWEGO DLAPORBKOWANIA 500 Hz
-const double Detector::Low500B[] =
+static const double Low500B[] =
 {
 	0.00000030403105645560036,
 	0.00000091209316936680107,
@@ -19,7 +20,7 @@ const double Detector::Low500B[] =
 	0.00000030403105645560036
 };
 //WSPOLCZYNNIKI A DLA FILTRU DOLNOPRZEPUSTOWEGO DLAPORBKOWANIA 500 Hz
-const double Detector::Low500A[] =
+static const double Low500A[] =
 {
 	1.0,
 	-2.9729825085787462,
@@ -28,7 +29,7 @@ const double Detector::Low500A[] =
 };
 
 //WSPOLCZYNNIKI B DLA FILTRU PASMOWOPRZEPUSTOWEGO DLAPORBKOWANIA 2000 Hz
-const double Detector::Band2000B[] =
+static const double Band2000B[] =
 {
 	0.292893218813452,
 	0.0,
@@ -38,7 +39,7 @@ const double Detector::Band2000B[] =
 };
 
 //WSPOLCZYNNIKI a DLA FILTRU PASMOWOPRZEPUSTOWEGO DLAPORBKOWANIA 2000 Hz
-const double Detector::Band2000A[] =
+static const double Band2000A[] =
 {
 	1.0,
 	0.442463484164948,
@@ -47,13 +48,8 @@ const double Detector::Band2000A[] =
 	0.171572875253810,
 };
 
-Detector::Detector(std::function<void(double)> brHandler)
-	: //filterHigh(2, B_H, A_H),
-	  filterBand(PASS_BAND_ORDER*2, Band2000B, Band2000A),
-	  filterLow(LOW_PASS_ORDER, Low500B, Low500A),
-	  wave(WINDOW_SIZE),
-	  env(ANALAYZE_SIZE),
-	  handler(brHandler)
+Detector::Detector(std::function<void(double)>& brHandler)
+	: handler(brHandler)
 {
 
 }
@@ -80,19 +76,20 @@ void Detector::StartSample()
 {
     try
     {
-        thread anlayzeTh = thread([this]{ AnalyseSamples(); });
-        //odczytanie i pominiecie starej probki
-        read(i2cFd, readBuf, 2);
-
         size_t i = 0;
         unsigned int now;
+        unsigned char readBuf[2];
 
         //ustawienie maksymalnego priorytetu watku
         //w celu minimalizacji jittera
         piHiPri(99);
 
-       unsigned int nexTime = micros() + TICK;
+        //uruchomienie watku analizujacego probki
+        thread anlayzeTh = thread([this]{ AnalyseSamples(); });
+        //odczytanie i pominiecie starej probki
+        read(i2cFd, readBuf, 2);
 
+        unsigned int nexTime = micros() + TICK;//obliczenie czsu nastepnej probki
         while(sampleFlag)
         {
             //odczytanie nowej probki////////////////////////////////////////
@@ -100,12 +97,10 @@ void Detector::StartSample()
             //jezeli czytalibysmy 1 to otrzymamy zawsze to samo stara probke
             read(i2cFd, readBuf, 2);
             if(!lockFreeBuffer.push(readBuf[0]))
-            {
                 throw runtime_error("spsc_queue.push() returned false!");
-            }
             //pobranie aktualnego czasu
             now = micros();
-            //obliczenie nastepnego czasu
+            //obliczenie czasu nastepnej probki
             nexTime += TICK;
             //opoznienie jezeli zdazylo sie wszystko wykonac
             //jezeli wystapi opoznienie zobaczymy komunikat
@@ -132,6 +127,24 @@ void Detector::AnalyseSamples()
     {
         int windowCtr = 0;
         unsigned char val = 0;
+        unsigned long peakStartTime = 0;
+        unsigned long peakTime = 0;
+        unsigned long peakEndTime = 0;
+        double peakVal = 0.0;
+        double peakW = 0.0;
+        double peakH = 0.0;
+        bool peakFound = false;
+        const double threshold = 5.0;
+        const double minW = 0.5;
+        const double minH = 10.0;
+        unsigned long offset = 0;
+        double previousPeakSecond = 0.0;
+        double peakSecond;
+        double BPM;
+        DigitalFilter filterBand(PASS_BAND_ORDER*2, Band2000B, Band2000A);
+        DigitalFilter filterLow(LOW_PASS_ORDER, Low500B, Low500A);
+        vector<double>  wave(WINDOW_SIZE);
+        vector<double> env(ANALAYZE_SIZE);
         while(sampleFlag)
         {
             //czy zebrano odpowiednia liczbe probek ?
@@ -140,13 +153,13 @@ void Detector::AnalyseSamples()
                 //czy w buforze jest wartosc?
                 if(lockFreeBuffer.pop(val))
                 {
-                    wave[windowCtr] = static_cast<double>(val);
-                    wave[windowCtr] -= 128;//skalowanie
-                    ++windowCtr;
+                    val -= 128;//skalowanie
+                    wave[windowCtr++] = static_cast<double>(val);
                 }
                 else
                 {
-                    //jezeli nie ma probek poczekaj
+                    //jezeli nie ma probek
+                    //poczekajna zapelnienie okolo 25% bufora
                     delayMicroseconds(TICK * SAMPLE_FERQ / 4);
                 }
                 continue;
