@@ -36,6 +36,8 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="App.cpp" />
+		<Unit filename="App.h" />
 		<Unit filename="BtClient.cpp" />
 		<Unit filename="BtClient.h" />
 		<Unit filename="Detector.cpp" />

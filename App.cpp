@@ -4,7 +4,7 @@ using namespace std;
 
 bool App::parseArgs(
         const list<string>& args,
-        unsigned int& tcpPort,
+        int& tcpPort,
         bool& bt,
         string& serverAdr,
         int& channel)
@@ -14,13 +14,18 @@ bool App::parseArgs(
         auto argsEnd = args.end();
         while (it != argsEnd)
         {
-            if(*it == "-tcp")
+            if (*it == "-tcp")
             {
                 ++it;
                 if (it != argsEnd)
                     tcpPort = stoul(*it);
                 else
                     return false;
+            }
+            //wylacz tcp
+            if (*it == "-notcp")
+            {
+                tcpPort = -1;
             }
             //wlacz bluetooth
             else if(*it == "-bt")
@@ -47,9 +52,9 @@ bool App::parseArgs(
             }
             else if(*it == "-h")
             {
-                cout << "brdet v1.0" << endl;
+                cout << "BreathMeasure v1.0" << endl;
                 cout << "Usage:" << endl;
-                cout << "\tBreathMeasure [-tcp <port>] [-bt [-adr <address>] [-ch <channel>]] | [-h]" << endl;
+                cout << "BreathMeasure [[[-tcp <port>] | -notcp] [-bt [-adr <address>] [-ch <channel>]]] | [-h]" << endl;
                 exit(0);
             }
             //nieznany argument
@@ -60,14 +65,27 @@ bool App::parseArgs(
         return true;
     }
 
-    //uruchomienie watka probkujacego
-    void App::StartSample(Detector& det)
+    void App::SetDetector(Detector& detector)
     {
-        //sampleThread = thread([&det]{ det.Sample(); });
+        det = &detector;
     }
 
-    void App::StopSample(Detector& det)
+    void App::StartSample()    {
+        lock_guard<mutex> lck(appMut);
+        if(sampleFlag == false)
+        {
+            sampleThread = thread([this] { det->Sample(); });
+            sampleFlag = true;
+        }
+    }
+
+    void App::StopSample()
     {
-        //det.StopSample();
-        //sampleThread.join();
+        lock_guard<mutex> lck(appMut);
+        if(sampleFlag == true)
+        {
+            det->StopSample();
+            sampleThread.join();
+            sampleFlag = false;
+        }
     }

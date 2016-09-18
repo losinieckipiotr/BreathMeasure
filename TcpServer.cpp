@@ -6,12 +6,14 @@
 using namespace std;
 using namespace boost::asio::ip;
 
-TcpServer::TcpServer(unsigned int port)
-    :   myService(),
-        myAcceptor(myService,
-        boost::asio::ip::tcp::endpoint(tcp::v4(), (unsigned short)port), true),
-        mySocket(myService),
-        connected(false)
+TcpServer::TcpServer(App& app, unsigned int port) :
+    connected(false),
+    myApp(app),
+    myService(),
+    myAcceptor(myService,
+    boost::asio::ip::tcp::endpoint(tcp::v4(), (unsigned short)port), true),
+    mySocket(myService)
+
 {
     Accept();
     serviceTh = thread([this](){ myService.run(); });
@@ -30,7 +32,10 @@ void TcpServer::Accept()
     {
         if(!ec)
         {
+            myApp.StopSample();
+            myApp.StartSample();
             cout << "Connected" << endl;
+            cout << "Restarting measure..." << endl;
             boost::asio::ip::tcp::no_delay option(true);
             mySocket.set_option(option);
             connected = true;

@@ -3,7 +3,7 @@
 #include <exception>
 #include <stdexcept>
 
-#include "BreathMeasure.h"
+#include "App.h"
 #include "BtClient.h"
 #include "Detector.h"
 #include "TcpServer.h"
@@ -18,7 +18,7 @@ int main(int argc, char **argv)
         string serverAdr = "58:3F:54:51:C3:6F";
         int channel = 5;
         bool bt = false;
-        unsigned int tcpPort = 2016;
+        int tcpPort = 2016;
         App myApp;
 
         //tworznie listy argumentow
@@ -33,10 +33,10 @@ int main(int argc, char **argv)
             throw runtime_error("Bad arguments!");
 
         TcpServer* tcpServer = nullptr;
-        if(tcpPort != 0)
+        if(tcpPort > 0)
         {
-            tcpServer = new TcpServer(tcpPort);
-            cout << "Starting TCP server..." << endl;
+            tcpServer = new TcpServer(myApp, tcpPort);
+            cout << "Starting TCP server on port: " << tcpPort << endl;
         }
 
         BtClient* btClient = nullptr;
@@ -65,12 +65,13 @@ int main(int argc, char **argv)
         cout << "Starting measure..." << endl;
         cout << "Press Enter to exit." << endl;
 
+        myApp.SetDetector(det);
         //uruchomienie watka probkujacego
-        myApp.StartSample(det);
+        myApp.StartSample();
         //wcisniecie klawisz Enter powoduje zamkniecie programu
         cin.get();
         //zatrzymanie probkowania
-        myApp.StopSample(det);
+        myApp.StopSample();
         //zamkniecie polaczanie BT
         if(btClient != nullptr)
             btClient->Disconnect();

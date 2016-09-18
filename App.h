@@ -4,6 +4,7 @@
 #include <string>
 #include <list>
 #include <thread>
+#include <mutex>
 
 #include "Detector.h"
 
@@ -12,15 +13,21 @@ class App
 public:
     static bool parseArgs(
         const std::list<std::string>& args,
-        unsigned int& tcpPort,
+        int& tcpPort,
         bool& bt,
         std::string& serverAdr,
         int& channel);
 
-    void StartSample(Detector& det);
-    void StopSample(Detector& det);
+    void SetDetector(Detector& detector);
 
+    void StartSample();
+    void StopSample();
+
+private:
+    bool sampleFlag = false;
+    Detector* det  = nullptr;
     std::thread sampleThread;
+    std::mutex appMut;
 };
 
 #endif // APP_H

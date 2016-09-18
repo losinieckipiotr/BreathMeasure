@@ -76,12 +76,12 @@
 1465245403 /home/piotr/codeblocks/BreathMeasure/DigitalFilter.h
 	<cstdlib>
 
-1474221140 source:/home/piotr/codeblocks/BreathMeasure/main.cpp
+1474223856 source:/home/piotr/codeblocks/BreathMeasure/main.cpp
 	<iostream>
 	<functional>
 	<exception>
 	<stdexcept>
-	"BreathMeasure.h"
+	"App.h"
 	"BtClient.h"
 	"Detector.h"
 	"TcpServer.h"
@@ -93,10 +93,11 @@
 	<future>
 	<boost/lockfree/spsc_queue.hpp>
 
-1466982365 /home/piotr/codeblocks/BreathMeasure/TcpServer.h
+1474222524 /home/piotr/codeblocks/BreathMeasure/TcpServer.h
 	<string>
 	<thread>
 	<boost/asio.hpp>
+	"App.h"
 
 1474220585 source:/home/piotr/codeblocks/BreathMeasure/Detector.cpp
 	"Detector.h"
@@ -107,7 +108,7 @@
 	<wiringPiI2C.h>
 	"DigitalFilter.h"
 
-1474219455 source:/home/piotr/codeblocks/BreathMeasure/TcpServer.cpp
+1474223424 source:/home/piotr/codeblocks/BreathMeasure/TcpServer.cpp
 	"TcpServer.h"
 	<future>
 	<iostream>
@@ -122,5 +123,15 @@
 	<thread>
 	<exception>
 	<stdexcept>
+	"Detector.h"
+
+1474223791 source:/home/piotr/codeblocks/BreathMeasure/App.cpp
+	"App.h"
+
+1474223786 /home/piotr/codeblocks/BreathMeasure/App.h
+	<string>
+	<list>
+	<thread>
+	<mutex>
 	"Detector.h"
 
