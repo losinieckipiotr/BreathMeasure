@@ -72,13 +72,15 @@ void Detector::Init()
 	wiringPiI2CWrite(i2cFd, CONTROL_BYTE);
 }
 
-void Detector::StartSample()
+void Detector::Sample()
 {
     try
     {
         size_t i = 0;
         unsigned int now;
         unsigned char readBuf[2];
+        sampleFlag = true;
+        lockFreeBuffer.reset();
 
         //ustawienie maksymalnego priorytetu watku
         //w celu minimalizacji jittera

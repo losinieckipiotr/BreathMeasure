@@ -29,14 +29,14 @@ public:
 	~Detector();
 
 	void Init();
-	void StartSample();
+	void Sample();
 	void StopSample();
 
 private:
 	void AnalyseSamples();
 
 	int i2cFd;
-	bool sampleFlag = true;
+	bool sampleFlag;
 	boost::lockfree::spsc_queue
         <unsigned char,
         boost::lockfree::capacity<SAMPLE_FERQ>> lockFreeBuffer;

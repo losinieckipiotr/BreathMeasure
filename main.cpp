@@ -1,73 +1,14 @@
 #include <iostream>
-#include <string>
-#include <list>
-#include <exception>
 #include <functional>
-#include <thread>
+#include <exception>
+#include <stdexcept>
 
+#include "BreathMeasure.h"
 #include "BtClient.h"
 #include "Detector.h"
 #include "TcpServer.h"
 
 using namespace std;
-
-bool parseArgs(
-    const list<string>& args,
-    string& serverAdr,
-    int& channel,
-    bool& bt,
-    unsigned int& tcpPort)
-{
-    //sprawdzanie i zmiana argumentow
-    auto it = args.begin();
-    auto argsEnd = args.end();
-    while (it != argsEnd)
-    {
-        //adres mac telefonu
-        if (*it == "-adr")
-        {
-            ++it;
-            if (it != argsEnd)
-                serverAdr = *it;
-            else
-                return false;
-        }
-        //numer kanalu rfcomm
-        else if (*it == "-ch")
-        {
-            ++it;
-            if (it != argsEnd)
-                channel = stoi(*it);
-            else
-                return false;
-        }
-        //bez bluetooth
-        else if(*it == "-nobt")
-        {
-            bt = false;
-        }
-        else if(*it == "-tcp")
-        {
-            ++it;
-            if (it != argsEnd)
-                tcpPort = stoul(*it);
-            else
-                return false;
-        }
-        else if(*it == "-h")
-        {
-            cout << "brdet v1.0" << endl;
-            cout << "Usage:" << endl;
-            cout << "\tbrdet [-adr <address>] [-ch <channel>] [-nobt] [-tcp <port>] | [-h]" << endl;
-            exit(0);
-        }
-        //nieznany argument
-        else
-            return false;
-        ++it;
-    }
-    return true;
-}
 
 int main(int argc, char **argv)
 {
@@ -76,8 +17,9 @@ int main(int argc, char **argv)
         //domyslne wartosci
         string serverAdr = "58:3F:54:51:C3:6F";
         int channel = 5;
-        bool bt = true;
-        unsigned int tcpPort = 0;
+        bool bt = false;
+        unsigned int tcpPort = 2016;
+        App myApp;
 
         //tworznie listy argumentow
 		list<string> args;
@@ -85,8 +27,9 @@ int main(int argc, char **argv)
 		{
 			args.push_back(argv[i]);
 		}
+
 		//parsowanie
-		if(parseArgs(args, serverAdr, channel, bt, tcpPort) == false)
+		if(myApp.parseArgs(args, tcpPort, bt, serverAdr, channel) == false)
             throw runtime_error("Bad arguments!");
 
         TcpServer* tcpServer = nullptr;
@@ -115,20 +58,19 @@ int main(int argc, char **argv)
                 tcpServer->Send(to_string(val));
         };
 
+        //przekazanie handlera
         Detector det(handler);
+        //inicjalizacja detektora
         det.Init();
         cout << "Starting measure..." << endl;
         cout << "Press Enter to exit." << endl;
 
         //uruchomienie watka probkujacego
-        thread sampleTh = thread([&det]{ det.StartSample(); });
-
+        myApp.StartSample(det);
         //wcisniecie klawisz Enter powoduje zamkniecie programu
         cin.get();
         //zatrzymanie probkowania
-        det.StopSample();
-        //synchronizacja
-        sampleTh.join();
+        myApp.StopSample(det);
         //zamkniecie polaczanie BT
         if(btClient != nullptr)
             btClient->Disconnect();
